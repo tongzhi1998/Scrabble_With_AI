@@ -1,0 +1,5 @@
+HANDSIZE: 7
+TILES: scrabble_configs/standard-scrabble-setup/english-tileset.txt
+BOARD: scrabble_configs/crazy-scrabble-setup/crazy-scrabble-board.txt
+SEED:    22
+DICTIONARY: scrabble_configs/crazy-scrabble-setup/crazy-dictionary.txt
