@@ -1,6 +1,6 @@
-#include "Board.h"
-#include "Tile.h"
-#include "Square.h"
+#include "../lib/Board.h"
+#include "../lib/Tile.h"
+#include "../lib/Square.h"
 #include <fstream>
 #include <sstream>
 #include <cstring>

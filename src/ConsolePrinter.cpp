@@ -4,8 +4,8 @@
 
 // STUDENTS: you must use this file as-is without modifications
 
-#include "ConsolePrinter.h"
-#include "rang.h"
+#include "../lib/ConsolePrinter.h"
+#include "../lib/rang.h"
 
 #include <iostream>
 #include <iomanip>

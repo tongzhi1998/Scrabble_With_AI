@@ -1,4 +1,4 @@
-#include "Player.h"
+#include "../lib/Player.h"
 #include <set>
 #include <vector>
 #include <string>

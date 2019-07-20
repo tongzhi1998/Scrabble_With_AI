@@ -4,13 +4,13 @@
    Call Move::parseMove() to turn an entered string into its subclass of
    Move, then call apply() on that returned move to have it execute.*/
 
-#include "Move.h"
-#include "Bag.h"
-#include "Board.h"
-#include "Dictionary.h"
-#include "Tile.h"
-#include "Player.h"
-#include "Square.h"
+#include "../lib/Move.h"
+#include "../lib/Bag.h"
+#include "../lib/Board.h"
+#include "../lib/Dictionary.h"
+#include "../lib/Tile.h"
+#include "../lib/Player.h"
+#include "../lib/Square.h"
 #include <vector>
 #include <set>
 #include <map>

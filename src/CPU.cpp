@@ -1,8 +1,8 @@
-#include "CPU.h"
-#include "Dictionary.h"
-#include "Player.h"
-#include "Move.h"
-#include "Bag.h"
+#include "../lib/CPU.h"
+#include "../lib/Dictionary.h"
+#include "../lib/Player.h"
+#include "../lib/Move.h"
+#include "../lib/Bag.h"
 #include <vector>
 #include <string>
 #include <iostream>

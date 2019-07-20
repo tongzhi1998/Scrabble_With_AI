@@ -4,8 +4,8 @@
 
 // STUDENTS: you must use this file as-is without modifications
 
-#include "Bag.h"
-#include "Exceptions.h"
+#include "../lib/Bag.h"
+#include "../lib/Exceptions.h"
 
 #include <fstream>
 

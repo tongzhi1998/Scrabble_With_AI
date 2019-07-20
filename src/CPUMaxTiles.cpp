@@ -1,15 +1,18 @@
-#include "CPUMaxScore.h"
-#include "Move.h"
-#include "Board.h"
-#include "Bag.h"
+#include "../lib/CPUMaxTiles.h"
+#include "../lib/Move.h"
+#include "../lib/Tile.h"
+#include "../lib/Board.h"
 #include <string>
-#include <vector>
+#include <sstream>
 #include <iostream>
 
 using namespace std;
 
-/* Constructor for CPUS */
-CPUMaxScore::CPUMaxScore(std::string const & name, size_t maxTiles)
+/* Implementation of CPUL, which is pretty much the same as that of CPUS
+So I just comment the most important and the different parts */
+
+/* Constructor for CPUL */
+CPUMaxTiles::CPUMaxTiles(std::string const & name, size_t maxTiles)
 {
 	p_name = name;
 	score = 0;
@@ -17,17 +20,17 @@ CPUMaxScore::CPUMaxScore(std::string const & name, size_t maxTiles)
 	isPass = false;
 }
 
-/* Destructor for CPUS */
-CPUMaxScore::~CPUMaxScore()
+/* Destructor for CPUL */
+CPUMaxTiles::~CPUMaxTiles()
 {
 
 }
 
-/* Returns a move of any type (Mostly placeMoves) */
-Move* CPUMaxScore::getMove (Board& gameBoard, const Bag& gameBag)
+/* Returns a move of any type (Mostly placeMoves, rarely passMoves) */
+Move* CPUMaxTiles::getMove (Board& gameBoard, const Bag& gameBag)
 {
-	legalMoves.clear();// clear all legalMoves formed by previous step 
-	/* This part is used to check for the possible range to make the first move */
+	legalMoves.clear();
+	/* We constrain our search base a little bit by eliminating several start points */
 	recordUpRow=1;
 	recordDownRow=int(gameBoard.getRows());
 	recordLeftColumn=1;
@@ -88,7 +91,7 @@ Move* CPUMaxScore::getMove (Board& gameBoard, const Bag& gameBag)
 		if (found == true)
 			break;
 	}
-	/* Create a handTile string which is easier to pass in to the helper functions */
+	/* Turn the hand tiles to a string, which is easier to use later */
 	string handTiles;
 	for (set<Tile*>::iterator tileIter = hand.begin();tileIter!=hand.end();tileIter++)
 	{
@@ -99,50 +102,46 @@ Move* CPUMaxScore::getMove (Board& gameBoard, const Bag& gameBag)
 		for (unsigned int j=1;j<=gameBoard.getColumns();j++)
 		{
 			horizontalHelper(i,j,i,j,"","",handTiles,gameBoard,gameBag);
-			verticalHelper(i,j,i,j,"","",handTiles,gameBoard,gameBag);// calling vertical and horizontal helper on each square
+			verticalHelper(i,j,i,j,"","",handTiles,gameBoard,gameBag);
 		}
 	}
-	if (legalMoves.size()==0)
-	{
-		return new PassMove(this);// if we cannot get any legal moves, we return a passmove
+	if (legalMoves.size()==0){
+		return new PassMove(this);
 	}
-	int maxScore = 0;
-	/* Otherwise we get the move with the highest score and return it */
+	int maxLength = 0;
 	for (vector<pair<PlaceMove,int>>::iterator pairIter = legalMoves.begin();pairIter!=legalMoves.end();pairIter++)
 	{
-		if (pairIter->second>maxScore)
-			maxScore = pairIter->second;
+		if (pairIter->second>maxLength)
+			maxLength = pairIter->second;
 	}
 	for (vector<pair<PlaceMove,int>>::iterator pairIter = legalMoves.begin();pairIter!=legalMoves.end();pairIter++)
 	{
-		if (pairIter->second==maxScore)
+		if (pairIter->second==maxLength)
 		{
-			PlaceMove* m= new PlaceMove(pairIter->first.getStartRow(),pairIter->first.getStartColumn(),pairIter->first.getDirection(),pairIter->first.getMoveString(),this);
-			//std::cerr << m->getStartRow() << " " << m->getStartColumn() << " " << m->getDirection() << " " << m->getMoveString()  << std::endl;
+			PlaceMove* m = new PlaceMove(pairIter->first.getStartRow(),pairIter->first.getStartColumn(),pairIter->first.getDirection(),pairIter->first.getMoveString(),this);
 			return m;
 		}
 	}
-	return new PassMove(this);// this line of code will never trigger yet to avoid compiling with error I have to add it
+	return new PassMove(this);
 }
 
 /* Searching for valid horizontal moves given a starting point */
-void CPUMaxScore::horizontalHelper(int startRow, int startCol, int currRow, int currCol, string placed, string temp, string inHand,  Board& gameBoard, const Bag& gameBag)
+void CPUMaxTiles::horizontalHelper(int startRow, int startCol, int currRow, int currCol, string placed, string temp, string inHand,  Board& gameBoard, const Bag& gameBag)
 {
-	if (gameBoard.hasInit()==false&&gameBoard.isEmpty()==true) // if there is nothing in the board and no initial file
+	if (gameBoard.hasInit()==false&&gameBoard.isEmpty()==true)
 	{
 		if (startRow!=int(gameBoard.getStartRow()))
 			return;
 	}
-	if (startRow<recordUpRow-1||startRow>recordDownRow+1) // if the search scope is out of possible boundary, we just return
+	if (startRow<recordUpRow-1||startRow>recordDownRow+1)
 		return;
-	if (gameBoard.Occupied(startRow,startCol)==true)// if the start position has a tile, we skip that position
+	if (gameBoard.Occupied(startRow,startCol)==true)
 		return;
-	if (inHand.length()==0&&gameBoard.Occupied(currRow,currCol)==false)// if the CPU runs out of tiles and there is no more to go
+	if (inHand.length()==0&&gameBoard.Occupied(currRow,currCol)==false)
 		return;
-	if (gameBoard.Occupied(currRow,currCol)==true)// if the current square is occupied, we move forward to an unoccupied square and record everything accordingly
+	if (gameBoard.Occupied(currRow,currCol)==true)
 	{
-		string newTemp="";
-		/* searching forward if this is the first tile to be placed */
+		string newTemp;
 		if (temp.length()==0)
 		{
 			bool entered = false;
@@ -166,11 +165,10 @@ void CPUMaxScore::horizontalHelper(int startRow, int startCol, int currRow, int 
 				}
 			}
 		}
-		/* Create the temp by also including tiles in the board */
-		for (unsigned int k=0;k<temp.length();k++)
+		for (unsigned int i=0;i<temp.length();i++)
 		{
-			newTemp+=temp[k];
-		}
+			newTemp+=temp[i];
+		}	
 		while (gameBoard.Occupied(currRow,currCol)==true)
 		{
 			newTemp+=gameBoard.getSquare(currCol,currRow)->getLetter();
@@ -179,15 +177,15 @@ void CPUMaxScore::horizontalHelper(int startRow, int startCol, int currRow, int 
 				break;
 		}
 		currCol--;
-		string newPlaced = placed; // create newplaced accordingly
-		string newInHand = inHand; // create newInhand accordingly
-		if (gameTrie.prefix(newTemp)==NULL)// if there is no such prefix, we just return
+		string newPlaced = placed;
+		string newInHand = inHand;
+		if (gameTrie.prefix(newTemp)==NULL)
 			return;
-		else if (gameTrie.prefix(newTemp)->inset==true&&newPlaced.length()!=0) // if the move creates a legal word in its mean direction
+		else if (gameTrie.prefix(newTemp)->inset==true&&newPlaced.length()!=0)
 		{
 			PlaceMove m(startRow,startCol,true,newPlaced,this);
-			m.initiateTiles();// we create a PlaceMove and finish all initialization
-			vector<pair<string,unsigned int>> results = gameBoard.getPlaceMoveResults(m);// call the getPlaceMoveResult function to get all words and check against the trie
+			m.initiateTiles();
+			vector<pair<string,unsigned int>> results = gameBoard.getPlaceMoveResults(m);
 			bool valid = true;
 			for (vector<pair<string,unsigned int>>::iterator pairIter = results.begin();pairIter!=results.end();pairIter++)
 			{
@@ -197,26 +195,24 @@ void CPUMaxScore::horizontalHelper(int startRow, int startCol, int currRow, int 
 					break;
 				}
 			}
-			/* If all the words are valid, we generate a new PlaceMove and push it to our vector */
 			if (valid == true)
 			{
 				PlaceMove m(startRow,startCol,true,newPlaced,this);
-				m.initiateTiles();
-				vector<pair<string,unsigned int>> finalResult = gameBoard.getPlaceMoveResults(m);
-				unsigned int finalScore = 0;
-				for (vector<pair<string,unsigned int>>::iterator pairIter = finalResult.begin();pairIter!=finalResult.end();pairIter++)
+				unsigned int length = newPlaced.length();
+				for (unsigned int i=0;i<newPlaced.length();i++)
 				{
-					finalScore+=pairIter->second;
+					if (newPlaced[i]=='?')
+						length--;
 				}
-				legalMoves.push_back(make_pair(m,finalScore));
+				legalMoves.push_back(make_pair(m,length));
 			}
 		}
-		if (currCol+1>int(gameBoard.getColumns())) // if we are out of bound, just return
+		if (currCol+1>int(gameBoard.getColumns()))
 			return;
-		else // recursively doing the backtracking on next square
+		else
 			horizontalHelper(startRow,startCol,currRow,currCol+1,newPlaced,newTemp,newInHand,gameBoard,gameBag);
 	}
-	else // if we need to place a hand tile onto the board
+	else
 	{
 		for (unsigned int i=0;i<inHand.length();i++)
 		{
@@ -252,18 +248,18 @@ void CPUMaxScore::horizontalHelper(int startRow, int startCol, int currRow, int 
 					newTemp+=temp[k];
 				}
 				newTemp+=inHand[i];
-				string newInHand; 
+				string newInHand;
 				for (unsigned int j=0;j<i;j++)
 				{
 					newInHand+=inHand[j];
 				}
 				for (unsigned int j=i+1;j<inHand.length();j++)
 				{
-					newInHand+=inHand[j]; // we set all variables accordingly (same as the previous case)
+					newInHand+=inHand[j];
 				}
-				if (gameTrie.prefix(newTemp)==NULL)// if the new formed prefix is not legal, just continue to the next tile in hand
+				if (gameTrie.prefix(newTemp)==NULL){
 					continue;
-				/* All the rest stuff is the same as the previous case*/
+				}
 				else if (gameTrie.prefix(newTemp)->inset==true)
 				{
 					PlaceMove m(startRow,startCol,true,newPlaced,this);
@@ -283,19 +279,15 @@ void CPUMaxScore::horizontalHelper(int startRow, int startCol, int currRow, int 
 						if (valid == true)
 						{
 							PlaceMove m(startRow,startCol,true,newPlaced,this);
-							m.initiateTiles();
-							vector<pair<string,unsigned int>> finalResult = gameBoard.getPlaceMoveResults(m);
-							unsigned int finalScore = 0;
-							for (vector<pair<string,unsigned int>>::iterator pairIter = finalResult.begin();pairIter!=finalResult.end();pairIter++)
+							unsigned int length = newPlaced.length();
+							for (unsigned int i=0;i<newPlaced.length();i++)
 							{
-								finalScore+=pairIter->second;
+								if (newPlaced[i]=='?')
+									length--;
 							}
-							if (newInHand.length()==0&&gameBag.tilesRemaining()!=0)
-								finalScore+=50;
-							legalMoves.push_back(make_pair(m,finalScore));
+							legalMoves.push_back(make_pair(m,length));
 						}
 					}
-					/* If the board is empty and the gameBoard doesn't has initial file */
 					else if (gameBoard.isEmpty()==true&&gameBoard.hasInit()==false)
 					{
 						if (m.getStartRow()==gameBoard.getStartRow())
@@ -303,30 +295,19 @@ void CPUMaxScore::horizontalHelper(int startRow, int startCol, int currRow, int 
 							if ((m.getStartColumn()==gameBoard.getStartCol())||(m.getStartColumn()<gameBoard.getStartCol()&&m.getStartColumn()+newTemp.length()>gameBoard.getStartCol()))
 							{
 								PlaceMove m(startRow,startCol,true,newPlaced,this);
-								m.initiateTiles();
-								vector<pair<string,unsigned int>> finalResult = gameBoard.getPlaceMoveResults(m);
-								unsigned int finalScore = 0;
-								for (vector<pair<string,unsigned int>>::iterator pairIter = finalResult.begin();pairIter!=finalResult.end();pairIter++)
-								{
-									finalScore+=pairIter->second;
-								}
-								if (newInHand.length()==0&&gameBag.tilesRemaining()!=0)
-									finalScore+=50;
-								legalMoves.push_back(make_pair(m,finalScore));
+								legalMoves.push_back(make_pair(m,newPlaced.length()));
 							}
 						}
 					}
-					/* If the board has initial file */
 					else if (gameBoard.isEmpty()==true&&gameBoard.hasInit()==true)
 					{
-						unsigned int finalScore = 0;
-						for (vector<pair<string,unsigned int>>::iterator pairIter = results.begin();pairIter!=results.end();pairIter++)
+						unsigned int length = newPlaced.length();
+						for (unsigned int i=0;i<newPlaced.length();i++)
 						{
-							finalScore+=pairIter->second;
+							if (newPlaced[i]=='?')
+								length--;
 						}
-						if (newInHand.length()==0&&gameBag.tilesRemaining()!=0)
-							finalScore+=50;
-						legalMoves.push_back(make_pair(m,finalScore));
+						legalMoves.push_back(make_pair(m,length));
 					}
 				}
 				if (currCol+1>int(gameBoard.getColumns()))
@@ -398,49 +379,42 @@ void CPUMaxScore::horizontalHelper(int startRow, int startCol, int currRow, int 
 							}
 							if (valid == true)
 							{
-								PlaceMove m (startRow,startCol,true,newPlaced,this);
-								m.initiateTiles();
-								vector<pair<string,unsigned int>> finalResult = gameBoard.getPlaceMoveResults(m);
-								unsigned int finalScore = 0;
-								for (vector<pair<string,unsigned int>>::iterator pairIter = finalResult.begin();pairIter!=finalResult.end();pairIter++)
+								PlaceMove m(startRow,startCol,true,newPlaced,this);
+								unsigned int length = newPlaced.length();
+								for (unsigned int i=0;i<newPlaced.length();i++)
 								{
-									finalScore+=pairIter->second;
+									if (newPlaced[i]=='?')
+										length--;
 								}
-								if (newInHand.length()==0&&gameBag.tilesRemaining()!=0)
-									finalScore+=50;
-								legalMoves.push_back(make_pair(m,finalScore));
+								legalMoves.push_back(make_pair(m,length));
 							}
 						}
-						else if (gameBoard.isEmpty()==true&&gameBoard.hasInit()==false)
+						else if (gameBoard.isEmpty()==true)
 						{
 							if (m.getStartRow()==gameBoard.getStartRow())
 							{
 								if ((m.getStartColumn()==gameBoard.getStartCol())||(m.getStartColumn()<gameBoard.getStartCol()&&m.getStartColumn()+newTemp.length()>gameBoard.getStartCol()))
 								{
 									PlaceMove m(startRow,startCol,true,newPlaced,this);
-									m.initiateTiles();
-									vector<pair<string,unsigned int>> finalResult = gameBoard.getPlaceMoveResults(m);
-									unsigned int finalScore = 0;
-									for (vector<pair<string,unsigned int>>::iterator pairIter = finalResult.begin();pairIter!=finalResult.end();pairIter++)
+									unsigned int length = newPlaced.length();
+									for (unsigned int i=0;i<newPlaced.length();i++)
 									{
-										finalScore+=pairIter->second;
+										if (newPlaced[i]=='?')
+											length--;
 									}
-									if (newInHand.length()==0&&gameBag.tilesRemaining()!=0)
-										finalScore+=50;
-									legalMoves.push_back(make_pair(m,finalScore));
+									legalMoves.push_back(make_pair(m,length));
 								}
 							}
 						}
 						else if (gameBoard.isEmpty()==true&&gameBoard.hasInit()==true)
 						{
-							unsigned int finalScore = 0;
-							for (vector<pair<string,unsigned int>>::iterator pairIter = results.begin();pairIter!=results.end();pairIter++)
+							unsigned int length = newPlaced.length();
+							for (unsigned int i=0;i<newPlaced.length();i++)
 							{
-								finalScore+=pairIter->second;
+								if (newPlaced[i]=='?')
+									length--;
 							}
-							if (newInHand.length()==0&&gameBag.tilesRemaining()!=0)
-								finalScore+=50;
-							legalMoves.push_back(make_pair(m,finalScore));
+							legalMoves.push_back(make_pair(m,length));
 						}
 					}
 					if (currCol+1>int(gameBoard.getColumns()))
@@ -454,8 +428,8 @@ void CPUMaxScore::horizontalHelper(int startRow, int startCol, int currRow, int 
 	}
 }
 
-/* Searching for valid vertical moves given a starting point, the same as horizontal helper */
-void CPUMaxScore::verticalHelper (int startRow, int startCol, int currRow, int currCol, string placed, string temp, string inHand, Board& gameBoard, const Bag& gameBag)
+/* Searching for valid vertical moves given a starting point */
+void CPUMaxTiles::verticalHelper (int startRow, int startCol, int currRow, int currCol, string placed, string temp, string inHand, Board& gameBoard, const Bag& gameBag)
 {
 	if (gameBoard.hasInit()==false&&gameBoard.isEmpty()==true)
 	{
@@ -498,7 +472,7 @@ void CPUMaxScore::verticalHelper (int startRow, int startCol, int currRow, int c
 		{
 			newTemp+=temp[i];
 		}
-		while(gameBoard.Occupied(currRow,currCol)==true)
+		while (gameBoard.Occupied(currRow,currCol)==true)
 		{
 			newTemp+=gameBoard.getSquare(currCol,currRow)->getLetter();
 			currRow++;
@@ -510,7 +484,7 @@ void CPUMaxScore::verticalHelper (int startRow, int startCol, int currRow, int c
 		string newInHand = inHand;
 		if (gameTrie.prefix(newTemp)==NULL)
 			return;
-		else if (gameTrie.prefix(newTemp)->inset==true)
+		else if (gameTrie.prefix(newTemp)->inset==true&&newPlaced.length()!=0)
 		{
 			PlaceMove m(startRow,startCol,false,newPlaced,this);
 			m.initiateTiles();
@@ -527,16 +501,13 @@ void CPUMaxScore::verticalHelper (int startRow, int startCol, int currRow, int c
 			if (valid == true)
 			{
 				PlaceMove m(startRow,startCol,false,newPlaced,this);
-				m.initiateTiles();
-				vector<pair<string,unsigned int>> finalResult = gameBoard.getPlaceMoveResults(m);
-				unsigned int finalScore = 0;
-				for (vector<pair<string,unsigned int>>::iterator pairIter = finalResult.begin();pairIter!=finalResult.end();pairIter++)
+				unsigned int length = newPlaced.length();
+				for (unsigned int i=0;i<newPlaced.length();i++)
 				{
-					finalScore+=pairIter->second;
+					if (newPlaced[i]=='?')
+						length--;
 				}
-				if (newInHand.length()==0&&gameBag.tilesRemaining()!=0)
-					finalScore+=50;
-				legalMoves.push_back(make_pair(m,finalScore));
+				legalMoves.push_back(make_pair(m,length));
 			}
 		}
 		if (currRow+1>int(gameBoard.getRows()))
@@ -589,9 +560,8 @@ void CPUMaxScore::verticalHelper (int startRow, int startCol, int currRow, int c
 				{
 					newInHand+=inHand[j];
 				}
-				if (gameTrie.prefix(newTemp)==NULL){
+				if (gameTrie.prefix(newTemp)==NULL)
 					continue;
-				}
 				else if (gameTrie.prefix(newTemp)->inset==true)
 				{
 					PlaceMove m(startRow,startCol,false,newPlaced,this);
@@ -611,50 +581,36 @@ void CPUMaxScore::verticalHelper (int startRow, int startCol, int currRow, int c
 						if (valid == true)
 						{
 							PlaceMove m(startRow,startCol,false,newPlaced,this);
-							m.initiateTiles();
-							vector<pair<string,unsigned int>> finalResult = gameBoard.getPlaceMoveResults(m);
-							unsigned int finalScore = 0;
-							for (vector<pair<string,unsigned int>>::iterator pairIter = finalResult.begin();pairIter!=finalResult.end();pairIter++)
+							unsigned int length = newPlaced.length();
+							for (unsigned int i=0;i<newPlaced.length();i++)
 							{
-								finalScore+=pairIter->second;
+								if (newPlaced[i]=='?')
+									length--;
 							}
-							if (newInHand.length()==0&&gameBag.tilesRemaining()!=0)
-								finalScore+=50;
-							legalMoves.push_back(make_pair(m,finalScore));
+							legalMoves.push_back(make_pair(m,length));
 						}
 					}
-					else if (gameBoard.isEmpty()==true&&gameBoard.hasInit()==false)
+					else if (gameBoard.isEmpty()==true)
 					{
 						if (m.getStartColumn()==gameBoard.getStartCol())
 						{
 							if ((m.getStartRow()==gameBoard.getStartRow())||(m.getStartRow()<gameBoard.getStartRow()&&m.getStartRow()+newTemp.length()>gameBoard.getStartRow()))
 							{
 								PlaceMove m(startRow,startCol,false,newPlaced,this);
-								m.initiateTiles();
-								vector<pair<string,unsigned int>> finalResult = gameBoard.getPlaceMoveResults(m);
-								unsigned int finalScore = 0;
-								for (vector<pair<string,unsigned int>>::iterator pairIter = finalResult.begin();pairIter!=finalResult.end();pairIter++)
+								unsigned int length = newPlaced.length();
+								for (unsigned int i=0;i<newPlaced.length();i++)
 								{
-									finalScore+=pairIter->second;
+									if (newPlaced[i]=='?')
+										length--;
 								}
-								if (newInHand.length()==0&&gameBag.tilesRemaining()!=0)
-									finalScore+=50;
-								legalMoves.push_back(make_pair(m,finalScore));
+								legalMoves.push_back(make_pair(m,length));
 							}
 						}
 					}
 					else if (gameBoard.isEmpty()==true&&gameBoard.hasInit()==true)
 					{
-						unsigned int finalScore = 0;
-						for (vector<pair<string,unsigned int>>::iterator pairIter = results.begin();pairIter!=results.end();pairIter++)
-						{
-							finalScore+=pairIter->second;
-						}
-						if (newInHand.length()==0&&gameBag.tilesRemaining()!=0)
-							finalScore+=50;
-						legalMoves.push_back(make_pair(m,finalScore));
+						legalMoves.push_back(make_pair(m,newPlaced.length()));
 					}
-
 				}
 				if (currRow+1>int(gameBoard.getRows()))
 					continue;
@@ -726,48 +682,35 @@ void CPUMaxScore::verticalHelper (int startRow, int startCol, int currRow, int c
 							if (valid == true)
 							{
 								PlaceMove m(startRow,startCol,false,newPlaced,this);
-								m.initiateTiles();
-								vector<pair<string,unsigned int>> finalResult = gameBoard.getPlaceMoveResults(m);
-								unsigned int finalScore = 0;
-								for (vector<pair<string,unsigned int>>::iterator pairIter = finalResult.begin();pairIter!=finalResult.end();pairIter++)
+								unsigned int length = newPlaced.length();
+								for (unsigned int i=0;i<newPlaced.length();i++)
 								{
-									finalScore+=pairIter->second;
+									if (newPlaced[i]=='?')
+										length--;
 								}
-								if (newInHand.length()==0&&gameBag.tilesRemaining()!=0)
-									finalScore+=50;
-								legalMoves.push_back(make_pair(m,finalScore));
+								legalMoves.push_back(make_pair(m,length));
 							}
 						}
-						else if (gameBoard.isEmpty()==true&&gameBoard.hasInit()==false)
+						else if (gameBoard.isEmpty()==true)
 						{
 							if (m.getStartColumn()==gameBoard.getStartCol())
 							{
 								if ((m.getStartRow()==gameBoard.getStartRow())||(m.getStartRow()<gameBoard.getStartRow()&&m.getStartRow()+newTemp.length()>gameBoard.getStartRow()))
 								{
 									PlaceMove m(startRow,startCol,false,newPlaced,this);
-									m.initiateTiles();
-									vector<pair<string,unsigned int>> finalResult = gameBoard.getPlaceMoveResults(m);
-									unsigned int finalScore = 0;
-									for (vector<pair<string,unsigned int>>::iterator pairIter = finalResult.begin();pairIter!=finalResult.end();pairIter++)
+									unsigned int length = newPlaced.length();
+									for (unsigned int i=0;i<newPlaced.length();i++)
 									{
-										finalScore+=pairIter->second;
+										if (newPlaced[i]=='?')
+											length--;
 									}
-									if (newInHand.length()==0&&gameBag.tilesRemaining()!=0)
-										finalScore+=50;
-									legalMoves.push_back(make_pair(m,finalScore));
+									legalMoves.push_back(make_pair(m,length));
 								}
 							}
 						}
 						else if (gameBoard.isEmpty()==true&&gameBoard.hasInit()==true)
 						{
-							unsigned int finalScore = 0;
-							for (vector<pair<string,unsigned int>>::iterator pairIter = results.begin();pairIter!=results.end();pairIter++)
-							{
-								finalScore+=pairIter->second;
-							}
-							if (newInHand.length()==0&&gameBag.tilesRemaining()!=0)
-								finalScore+=50;
-							legalMoves.push_back(make_pair(m,finalScore));
+							legalMoves.push_back(make_pair(m,newPlaced.length()));
 						}
 					}
 					if (currRow+1>int(gameBoard.getRows()))
@@ -780,14 +723,13 @@ void CPUMaxScore::verticalHelper (int startRow, int startCol, int currRow, int c
 	}
 }
 
-/* Return the name of CPUS */
-string CPUMaxScore::getName() const
+/* Return the name for CPUL */
+string CPUMaxTiles::getName() const
 {
-	return "CPUS";
+	return "CPUL";
 }
 
-/* Helper function for debugging the CPU */
-void CPUMaxScore::printAllMoves() 
+void CPUMaxTiles::printAllMoves() 
 {
 	for (vector<pair<PlaceMove,int>>::iterator pairIter = legalMoves.begin();pairIter!=legalMoves.end();pairIter++)
 	{
